@@ -1,0 +1,70 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "NS CalDAV Trip",
+        "description": "Connect your CalDAV calendar (e.g. iCloud) and enter your NS API subscription key.",
+        "data": {
+          "url": "CalDAV URL",
+          "username": "Username",
+          "password": "Password",
+          "subscription_key": "NS API subscription key",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "Update the credentials for {username}.",
+        "data": {
+          "password": "Password",
+          "subscription_key": "NS API subscription key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This calendar is already configured",
+      "reauth_successful": "Re-authentication was successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "NS CalDAV Trip options",
+        "data": {
+          "scan_interval_hours": "Calendar scan interval (hours)",
+          "look_ahead_days": "Calendar look-ahead (days)",
+          "notify_lead_minutes": "Leave-soon lead time (minutes)",
+          "delay_threshold_minutes": "Delay threshold (minutes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "departure": { "name": "Departure" },
+      "arrival": { "name": "Arrival" },
+      "departure_station": { "name": "Departure station" },
+      "arrival_station": { "name": "Arrival station" },
+      "departure_track": { "name": "Departure track" },
+      "departure_delay": { "name": "Departure delay" },
+      "arrival_delay": { "name": "Arrival delay" },
+      "duration": { "name": "Duration" },
+      "transfers": { "name": "Transfers" },
+      "status": { "name": "Status" },
+      "crowd_forecast": { "name": "Crowd forecast" },
+      "departure_in": { "name": "Departure in" },
+      "price": { "name": "Price" },
+      "summary": { "name": "Trip summary" }
+    },
+    "binary_sensor": {
+      "leave_soon": { "name": "Leave soon" },
+      "delayed": { "name": "Delayed" },
+      "disruption": { "name": "Disruption" }
+    }
+  }
+}

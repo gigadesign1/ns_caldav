@@ -1,0 +1,70 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "NS CalDAV Reis",
+        "description": "Verbind je CalDAV-agenda (bijv. iCloud) en voer je NS API-abonnementssleutel in.",
+        "data": {
+          "url": "CalDAV-URL",
+          "username": "Gebruikersnaam",
+          "password": "Wachtwoord",
+          "subscription_key": "NS API-abonnementssleutel",
+          "verify_ssl": "SSL-certificaat verifiëren"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Opnieuw verifiëren",
+        "description": "Werk de gegevens bij voor {username}.",
+        "data": {
+          "password": "Wachtwoord",
+          "subscription_key": "NS API-abonnementssleutel"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbinding mislukt",
+      "invalid_auth": "Ongeldige authenticatie",
+      "unknown": "Onverwachte fout"
+    },
+    "abort": {
+      "already_configured": "Deze agenda is al geconfigureerd",
+      "reauth_successful": "Opnieuw verifiëren is gelukt"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "NS CalDAV Reis-opties",
+        "data": {
+          "scan_interval_hours": "Scaninterval agenda (uren)",
+          "look_ahead_days": "Vooruitkijken in agenda (dagen)",
+          "notify_lead_minutes": "Voorbereidingstijd 'vertrek bijna' (minuten)",
+          "delay_threshold_minutes": "Vertragingsdrempel (minuten)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "departure": { "name": "Vertrek" },
+      "arrival": { "name": "Aankomst" },
+      "departure_station": { "name": "Vertrekstation" },
+      "arrival_station": { "name": "Aankomststation" },
+      "departure_track": { "name": "Vertrekspoor" },
+      "departure_delay": { "name": "Vertrekvertraging" },
+      "arrival_delay": { "name": "Aankomstvertraging" },
+      "duration": { "name": "Reisduur" },
+      "transfers": { "name": "Overstappen" },
+      "status": { "name": "Status" },
+      "crowd_forecast": { "name": "Drukteverwachting" },
+      "departure_in": { "name": "Vertrek over" },
+      "price": { "name": "Prijs" },
+      "summary": { "name": "Reisoverzicht" }
+    },
+    "binary_sensor": {
+      "leave_soon": { "name": "Vertrek bijna" },
+      "delayed": { "name": "Vertraagd" },
+      "disruption": { "name": "Verstoring" }
+    }
+  }
+}
