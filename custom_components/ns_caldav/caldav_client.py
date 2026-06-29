@@ -37,6 +37,19 @@ class ShareLinkHit:
     event_summary: str | None
 
 
+@dataclass(frozen=True)
+class DiscoveryResult:
+    """Result of a calendar scan.
+
+    ``complete`` is False when one or more calendars could not be searched, in
+    which case the hit list may be partial and callers should not treat missing
+    tokens as deleted events.
+    """
+
+    hits: list[ShareLinkHit]
+    complete: bool
+
+
 def _build_client(
     url: str, username: str, password: str, verify_ssl: bool
 ) -> caldav.DAVClient:
@@ -125,7 +138,7 @@ def discover_share_links(
     password: str,
     verify_ssl: bool,
     look_ahead_days: int,
-) -> list[ShareLinkHit]:
+) -> DiscoveryResult:
     """Scan upcoming calendar events for NS share links (run via executor)."""
     client = _build_client(url, username, password, verify_ssl)
     principal = client.principal()
@@ -133,6 +146,7 @@ def discover_share_links(
     end = start + timedelta(days=look_ahead_days)
 
     hits_by_token: dict[str, ShareLinkHit] = {}
+    complete = True
     for calendar in principal.calendars():
         try:
             events = calendar.search(
@@ -144,13 +158,14 @@ def discover_share_links(
                 getattr(calendar, "name", calendar),
                 err,
             )
+            complete = False
             continue
         for event in events:
             for hit in _scan_event(event):
                 # First occurrence of a token wins; later duplicates ignored.
                 hits_by_token.setdefault(hit.token, hit)
 
-    return list(hits_by_token.values())
+    return DiscoveryResult(hits=list(hits_by_token.values()), complete=complete)
 
 
 async def async_discover_share_links(
@@ -160,7 +175,7 @@ async def async_discover_share_links(
     password: str,
     verify_ssl: bool,
     look_ahead_days: int,
-) -> list[ShareLinkHit]:
+) -> DiscoveryResult:
     """Async wrapper running the blocking CalDAV scan in the executor."""
     return await hass.async_add_executor_job(
         discover_share_links,

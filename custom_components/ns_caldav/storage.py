@@ -113,6 +113,33 @@ class TripStore:
         """Insert or update a trip in memory (call async_save to persist)."""
         self._trips[trip.token] = trip
 
+    def remove(self, token: str) -> bool:
+        """Remove a trip by token. Returns True if something was removed."""
+        return self._trips.pop(token, None) is not None
+
+    def reconcile_present(
+        self, found_tokens: set[str], now: datetime, horizon: datetime
+    ) -> int:
+        """Drop upcoming trips whose token is no longer in the calendar.
+
+        Only trips departing between ``now`` and ``horizon`` are considered, so a
+        deleted calendar event is removed while past trips (handled by pruning)
+        and trips beyond the scan window are left untouched. Returns the number
+        of trips removed.
+        """
+        removed: list[str] = []
+        for token, trip in self._trips.items():
+            if token in found_tokens:
+                continue
+            departure = trip.planned_departure_dt
+            if departure is None:
+                continue
+            if now <= departure <= horizon:
+                removed.append(token)
+        for token in removed:
+            del self._trips[token]
+        return len(removed)
+
     def prune_before(self, cutoff: datetime) -> int:
         """Drop trips whose planned arrival (or departure) is before cutoff.
 

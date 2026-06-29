@@ -69,7 +69,7 @@ class DiscoveryCoordinator(DataUpdateCoordinator[int]):
             CONF_LOOK_AHEAD_DAYS, DEFAULT_LOOK_AHEAD_DAYS
         )
         try:
-            hits = await async_discover_share_links(
+            result = await async_discover_share_links(
                 self.hass,
                 data[CONF_URL],
                 data[CONF_USERNAME],
@@ -80,6 +80,7 @@ class DiscoveryCoordinator(DataUpdateCoordinator[int]):
         except Exception as err:  # noqa: BLE001 - surfaced as UpdateFailed
             raise UpdateFailed(f"Calendar scan failed: {err}") from err
 
+        hits = result.hits
         changed = False
         for hit in hits:
             existing = self._store.get(hit.token)
@@ -116,8 +117,18 @@ class DiscoveryCoordinator(DataUpdateCoordinator[int]):
             )
             changed = True
 
+        now = dt_util.now()
+        # Remove trips whose calendar event (or share link) was deleted. Only do
+        # this when the scan fully succeeded, so a transient calendar error does
+        # not wipe out trips.
+        if result.complete:
+            found_tokens = {hit.token for hit in hits}
+            horizon = now + timedelta(days=look_ahead)
+            if self._store.reconcile_present(found_tokens, now, horizon):
+                changed = True
+
         # Prune trips that finished well in the past.
-        cutoff = dt_util.now() - timedelta(days=1)
+        cutoff = now - timedelta(days=1)
         if self._store.prune_before(cutoff):
             changed = True
 
