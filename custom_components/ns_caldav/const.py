@@ -66,3 +66,9 @@ STORAGE_VERSION: Final = 1
 PUBLIC_TRANSIT_TYPE: Final = "PUBLIC_TRANSIT"
 
 PLATFORMS: Final = ["sensor", "binary_sensor"]
+
+# Frontend (Lovelace) card.
+CARD_FILENAME: Final = "ns-perronbord-card.js"
+CARD_URL_PATH: Final = f"/{DOMAIN}/{CARD_FILENAME}"
+# hass.data flag so the card resource is only registered once.
+CARD_REGISTERED: Final = "card_registered"

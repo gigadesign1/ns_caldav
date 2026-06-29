@@ -136,6 +136,77 @@ automation:
 > Entity IDs are generated from the device name; check **Developer Tools ->
 > States** for the exact IDs in your installation.
 
+## Dashboard card
+
+The integration ships a custom Lovelace card, **NS Perronbord**, that shows the
+next trip styled like an NS departure board. It is registered automatically when
+the integration loads - there is **no need to add a resource manually**. (If the
+card type isn't recognised the first time, do a hard refresh of the browser.)
+
+The card has two variants:
+
+- `board` (default) - the calm, on-time NS-blue departure screen.
+- `alert` - an emphasised NS-yellow "pop-out" for when the trip is delayed or
+  disrupted (shows the new departure time, delay, platform and any disruption
+  message).
+
+The card reads everything from a single entity
+(`sensor.ns_trip_next_trip_summary`) and also auto-detects delays/disruptions, so
+even the default `board` variant will switch to the alert styling on its own.
+
+### Basic usage
+
+```yaml
+type: custom:ns-perronbord-card
+```
+
+### Conditional pop-out (recommended)
+
+To keep a compact board in place normally and swap to the larger alert widget
+only when something is wrong, use two built-in `conditional` cards (no extra HACS
+dependencies). The board shows when there is **no** delay/disruption; the alert
+shows when **either** the `delayed` or `disruption` binary sensor is on:
+
+```yaml
+type: conditional
+conditions:
+  - condition: state
+    entity: binary_sensor.ns_trip_next_delayed
+    state: "off"
+  - condition: state
+    entity: binary_sensor.ns_trip_next_disruption
+    state: "off"
+card:
+  type: custom:ns-perronbord-card
+```
+
+```yaml
+type: conditional
+conditions:
+  - condition: or
+    conditions:
+      - condition: state
+        entity: binary_sensor.ns_trip_next_delayed
+        state: "on"
+      - condition: state
+        entity: binary_sensor.ns_trip_next_disruption
+        state: "on"
+card:
+  type: custom:ns-perronbord-card
+  variant: alert
+```
+
+> Because the binary sensors are `unavailable` when there is no upcoming trip,
+> both conditional cards render nothing - the dashboard slot stays empty until a
+> trip is scheduled.
+
+### Options
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `entity` | `sensor.ns_trip_next_trip_summary` | The trip summary sensor to read from |
+| `variant` | `board` | `board` or `alert` |
+
 ## Notes & limitations
 
 - Only the **single nearest** upcoming trip is exposed. Multiple appointments are

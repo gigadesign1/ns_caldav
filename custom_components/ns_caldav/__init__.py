@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.loader import async_get_integration
 
-from .const import CONF_SUBSCRIPTION_KEY, DOMAIN, PLATFORMS
+from .const import (
+    CARD_FILENAME,
+    CARD_REGISTERED,
+    CARD_URL_PATH,
+    CONF_SUBSCRIPTION_KEY,
+    DOMAIN,
+    PLATFORMS,
+)
 from .coordinator import DiscoveryCoordinator, TripCoordinator
 from .ns_api import NsApiClient
 from .storage import TripStore
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -22,8 +34,37 @@ class NsCaldavData:
     trip: TripCoordinator
 
 
+async def _async_register_frontend_card(hass: HomeAssistant) -> None:
+    """Serve the Lovelace card and load it as a frontend module (once)."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get(CARD_REGISTERED):
+        return
+    domain_data[CARD_REGISTERED] = True
+
+    card_path = Path(__file__).parent / "frontend" / CARD_FILENAME
+
+    from homeassistant.components.http import StaticPathConfig
+
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(CARD_URL_PATH, str(card_path), False)]
+    )
+
+    try:
+        integration = await async_get_integration(hass, DOMAIN)
+        version = integration.version or "0"
+    except Exception:  # noqa: BLE001 - version is best-effort cache busting only
+        version = "0"
+
+    from homeassistant.components.frontend import add_extra_js_url
+
+    add_extra_js_url(hass, f"{CARD_URL_PATH}?v={version}")
+    _LOGGER.debug("Registered NS perronbord card at %s", CARD_URL_PATH)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up NS CalDAV Trip from a config entry."""
+    await _async_register_frontend_card(hass)
+
     store = TripStore(hass, entry.entry_id)
     await store.async_load()
 
