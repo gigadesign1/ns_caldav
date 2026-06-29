@@ -150,22 +150,30 @@ The card has two variants:
   disrupted (shows the new departure time, delay, platform and any disruption
   message).
 
-The card reads everything from a single entity
-(`sensor.ns_trip_next_trip_summary`) and also auto-detects delays/disruptions, so
-even the default `board` variant will switch to the alert styling on its own.
+The card reads everything from the trip summary sensor, which it **finds
+automatically** (it locates the entity exposing the `summary_text` attribute), so
+it works regardless of your Home Assistant language and the resulting entity IDs.
 
-### Basic usage
+### Basic usage (recommended)
 
 ```yaml
 type: custom:ns-perronbord-card
 ```
 
-### Conditional pop-out (recommended)
+That single card is all you need: it shows the calm `board` style when the trip
+is on time and **automatically pops out to the emphasised `alert` style** when
+the trip is delayed or disrupted (bigger card, new departure time, delay,
+platform and the disruption message). No conditional cards required.
 
-To keep a compact board in place normally and swap to the larger alert widget
-only when something is wrong, use two built-in `conditional` cards (no extra HACS
-dependencies). The board shows when there is **no** delay/disruption; the alert
-shows when **either** the `delayed` or `disruption` binary sensor is on:
+### Conditional pop-out (advanced)
+
+If you prefer two genuinely separate cards (e.g. to place the alert in a
+different spot), wrap them in built-in `conditional` cards. Note that the
+integration's binary-sensor entity IDs are localized - in a Dutch instance they
+are `binary_sensor.ns_trip_next_vertraagd` and
+`binary_sensor.ns_trip_next_verstoring`; in English
+`binary_sensor.ns_trip_next_delayed` / `..._disruption`. Check **Developer Tools
+-> States** for your exact IDs and substitute them below.
 
 ```yaml
 type: conditional
@@ -204,8 +212,8 @@ card:
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `entity` | `sensor.ns_trip_next_trip_summary` | The trip summary sensor to read from |
-| `variant` | `board` | `board` or `alert` |
+| `entity` | _auto-detected_ | Override the trip summary sensor to read from |
+| `variant` | `board` | `board`, or `alert` to force the emphasised style |
 
 ## Notes & limitations
 

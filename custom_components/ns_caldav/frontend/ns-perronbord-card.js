@@ -15,8 +15,6 @@ const NS_BLUE = "#003082";
 const NS_YELLOW = "#ffc917";
 const NS_RED = "#db0029";
 
-const DEFAULT_ENTITY = "sensor.ns_trip_next_trip_summary";
-
 const STYLES = `
   :host { display: block; }
   .ns-card {
@@ -147,9 +145,11 @@ class NsPerronbordCard extends HTMLElement {
       throw new Error('variant must be "board" or "alert"');
     }
     this._config = {
-      entity: config.entity || DEFAULT_ENTITY,
+      // null => auto-discover the trip summary entity (language-independent).
+      entity: config.entity || null,
       variant,
     };
+    this._autoEntity = null;
     this._render();
   }
 
@@ -163,12 +163,35 @@ class NsPerronbordCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { entity: DEFAULT_ENTITY, variant: "board" };
+    return { variant: "board" };
+  }
+
+  _resolveEntityId() {
+    // Explicitly configured entity always wins.
+    if (this._config.entity) return this._config.entity;
+    if (!this._hass) return null;
+
+    // Cached auto-discovery still valid?
+    if (this._autoEntity && this._hass.states[this._autoEntity]) {
+      return this._autoEntity;
+    }
+
+    // The trip summary sensor is the only entity exposing `summary_text`,
+    // so we can find it regardless of the (localized) entity_id.
+    const found = Object.keys(this._hass.states).find((id) => {
+      if (!id.startsWith("sensor.")) return false;
+      const attrs = this._hass.states[id].attributes;
+      return attrs && Object.prototype.hasOwnProperty.call(attrs, "summary_text");
+    });
+    this._autoEntity = found || null;
+    return this._autoEntity;
   }
 
   _trip() {
-    if (!this._hass || !this._config.entity) return null;
-    const state = this._hass.states[this._config.entity];
+    if (!this._hass) return null;
+    const entityId = this._resolveEntityId();
+    if (!entityId) return null;
+    const state = this._hass.states[entityId];
     if (!state || state.state === "unavailable" || state.state === "unknown") {
       return null;
     }
@@ -259,7 +282,7 @@ class NsPerronbordCard extends HTMLElement {
     const actual = hhmm(a.actual_departure);
     const track = dep.track || a.departure_track;
     const status = a.status && a.status !== "NORMAL" ? a.status : null;
-    const tag = disrupted ? "Verstoring" : "Vertraging";
+    const tag = disrupted ? this._statusLabel(status || "DISRUPTION") : "Vertraging";
     const icon = disrupted ? "mdi:alert-octagon" : "mdi:alert";
 
     const spoor = track
@@ -321,8 +344,7 @@ class NsPerronbordCard extends HTMLElement {
       text = m.text || m.message || m.body || null;
     }
     if (!title && !text && status) {
-      title = "Verstoring";
-      text = status;
+      title = this._statusLabel(status);
     }
     if (!title && !text) return "";
     return `
@@ -333,6 +355,16 @@ class NsPerronbordCard extends HTMLElement {
           ${text ? `<div class="ns-msg-text">${escapeHtml(text)}</div>` : ""}
         </div>
       </div>`;
+  }
+
+  _statusLabel(status) {
+    switch (status) {
+      case "CANCELLED": return "Rit vervallen";
+      case "DISRUPTION": return "Verstoring";
+      case "MAINTENANCE": return "Werkzaamheden";
+      case "ALTERNATIVE_TRANSPORT": return "Vervangend vervoer";
+      default: return status;
+    }
   }
 
   _crowdLabel(value) {

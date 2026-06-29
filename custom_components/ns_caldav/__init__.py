@@ -35,19 +35,26 @@ class NsCaldavData:
 
 
 async def _async_register_frontend_card(hass: HomeAssistant) -> None:
-    """Serve the Lovelace card and load it as a frontend module (once)."""
+    """Serve the Lovelace card and load it as a frontend module (once).
+
+    Failures here must never break entity setup, so everything is best-effort
+    and logged. The card is loaded for every dashboard via ``add_extra_js_url``
+    so the user does not have to add a Lovelace resource manually.
+    """
     domain_data = hass.data.setdefault(DOMAIN, {})
     if domain_data.get(CARD_REGISTERED):
         return
-    domain_data[CARD_REGISTERED] = True
 
     card_path = Path(__file__).parent / "frontend" / CARD_FILENAME
+    if not card_path.is_file():
+        _LOGGER.error("NS perronbord card file is missing at %s", card_path)
+        return
 
-    from homeassistant.components.http import StaticPathConfig
-
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(CARD_URL_PATH, str(card_path), False)]
-    )
+    try:
+        await _async_register_static_path(hass, CARD_URL_PATH, str(card_path))
+    except Exception:  # noqa: BLE001 - best-effort; do not break setup
+        _LOGGER.exception("Failed to serve the NS perronbord card")
+        return
 
     try:
         integration = await async_get_integration(hass, DOMAIN)
@@ -55,10 +62,32 @@ async def _async_register_frontend_card(hass: HomeAssistant) -> None:
     except Exception:  # noqa: BLE001 - version is best-effort cache busting only
         version = "0"
 
-    from homeassistant.components.frontend import add_extra_js_url
+    try:
+        from homeassistant.components.frontend import add_extra_js_url
 
-    add_extra_js_url(hass, f"{CARD_URL_PATH}?v={version}")
-    _LOGGER.debug("Registered NS perronbord card at %s", CARD_URL_PATH)
+        add_extra_js_url(hass, f"{CARD_URL_PATH}?v={version}")
+    except Exception:  # noqa: BLE001 - best-effort; do not break setup
+        _LOGGER.exception("Failed to load the NS perronbord card module")
+        return
+
+    domain_data[CARD_REGISTERED] = True
+    _LOGGER.info(
+        "Registered NS perronbord card at %s (restart + hard-refresh the "
+        "browser if it is not picked up immediately)",
+        CARD_URL_PATH,
+    )
+
+
+async def _async_register_static_path(hass: HomeAssistant, url: str, path: str) -> None:
+    """Register a static file path, supporting old and new HA APIs."""
+    register_async = getattr(hass.http, "async_register_static_paths", None)
+    if register_async is not None:
+        from homeassistant.components.http import StaticPathConfig
+
+        await register_async([StaticPathConfig(url, path, False)])
+        return
+    # Fallback for Home Assistant < 2024.7.
+    hass.http.register_static_path(url, path, cache_headers=False)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
