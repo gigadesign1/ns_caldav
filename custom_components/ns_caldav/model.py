@@ -8,7 +8,7 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
-from .const import PUBLIC_TRANSIT_TYPE
+from .const import PUBLIC_TRANSIT_TYPE, WALK_TRAVEL_TYPE
 
 
 def _parse(value: Any) -> datetime | None:
@@ -50,17 +50,45 @@ class StationInfo:
         }
 
 
-def _station_from_point(point: dict[str, Any]) -> StationInfo:
+def _delay_from_point(point: dict[str, Any], *, at_departure: bool) -> int:
+    """Delay in minutes at a leg endpoint (origin or destination)."""
+    planned = _parse(point.get("plannedDateTime"))
+    actual = _parse(point.get("actualDateTime")) or planned
+    delay = _delay_minutes(planned, actual)
+    if delay == 0:
+        key = (
+            "departureDelayInSeconds" if at_departure else "arrivalDelayInSeconds"
+        )
+        seconds = point.get(key)
+        if seconds is not None:
+            try:
+                delay = max(0, round(int(seconds) / 60))
+            except (TypeError, ValueError):
+                pass
+    return delay
+
+
+def _station_from_point(point: dict[str, Any], *, at_departure: bool = True) -> StationInfo:
     planned = _parse(point.get("plannedDateTime"))
     actual = _parse(point.get("actualDateTime")) or planned
     return StationInfo(
         name=point.get("name"),
         planned_time=planned,
         actual_time=actual,
-        delay_minutes=_delay_minutes(planned, actual),
+        delay_minutes=_delay_from_point(point, at_departure=at_departure),
         track=point.get("actualTrack") or point.get("plannedTrack"),
         uic_code=point.get("uicCode"),
     )
+
+
+def _transit_legs(legs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return legs that are not walking."""
+    return [leg for leg in legs if leg.get("travelType") != WALK_TRAVEL_TYPE]
+
+
+def _public_transit_legs(legs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return train/bus/etc. legs (PUBLIC_TRANSIT from the NS API)."""
+    return [leg for leg in legs if leg.get("travelType") == PUBLIC_TRANSIT_TYPE]
 
 
 @dataclass
@@ -207,18 +235,21 @@ def parse_trip(data: dict[str, Any]) -> ParsedTrip | None:
     planned_arrival = _parse(last_destination.get("plannedDateTime"))
     actual_arrival = _parse(last_destination.get("actualDateTime")) or planned_arrival
 
-    transit_legs = [
-        leg for leg in legs if leg.get("travelType") == PUBLIC_TRANSIT_TYPE
-    ]
-    # Station-level endpoints: first boarding and final alighting station.
+    transit_legs = _transit_legs(legs)
+    public_transit_legs = _public_transit_legs(legs)
+    # Station-level endpoints: first boarding and final alighting on a ride leg.
     if transit_legs:
-        departure_station = _station_from_point(transit_legs[0].get("origin", {}))
+        departure_station = _station_from_point(
+            transit_legs[0].get("origin", {}), at_departure=True
+        )
         arrival_station = _station_from_point(
-            transit_legs[-1].get("destination", {})
+            transit_legs[-1].get("destination", {}), at_departure=False
         )
     else:
-        departure_station = _station_from_point(first_origin)
-        arrival_station = _station_from_point(last_destination)
+        departure_station = _station_from_point(first_origin, at_departure=True)
+        arrival_station = _station_from_point(
+            last_destination, at_departure=False
+        )
 
     product_fare = data.get("productFare", {}) or {}
     share = data.get("shareUrl", {}) or {}
@@ -230,8 +261,8 @@ def parse_trip(data: dict[str, Any]) -> ParsedTrip | None:
         actual_departure=actual_departure,
         planned_arrival=planned_arrival,
         actual_arrival=actual_arrival,
-        departure_delay_minutes=_delay_minutes(planned_departure, actual_departure),
-        arrival_delay_minutes=_delay_minutes(planned_arrival, actual_arrival),
+        departure_delay_minutes=departure_station.delay_minutes,
+        arrival_delay_minutes=arrival_station.delay_minutes,
         duration_minutes=data.get("actualDurationInMinutes")
         or data.get("plannedDurationInMinutes"),
         transfers=data.get("transfers"),
@@ -253,5 +284,5 @@ def parse_trip(data: dict[str, Any]) -> ParsedTrip | None:
     ) and (trip.status == "NORMAL" or trip.status is None):
         trip.status = "DISRUPTION"
 
-    trip.summary_text = _build_summary_text(trip, transit_legs)
+    trip.summary_text = _build_summary_text(trip, public_transit_legs)
     return trip

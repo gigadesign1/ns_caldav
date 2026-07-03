@@ -64,6 +64,7 @@ STORAGE_VERSION: Final = 1
 
 # Public-transit leg travel type as returned by the NS API.
 PUBLIC_TRANSIT_TYPE: Final = "PUBLIC_TRANSIT"
+WALK_TRAVEL_TYPE: Final = "WALK"
 
 PLATFORMS: Final = ["sensor", "binary_sensor"]
 

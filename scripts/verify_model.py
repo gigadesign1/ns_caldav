@@ -135,6 +135,23 @@ TRIP = {
 }
 
 
+DELAYED_TRIP = {
+    **TRIP,
+    "legs": [
+        TRIP["legs"][0],
+        {
+            **TRIP["legs"][1],
+            "origin": {
+                **TRIP["legs"][1]["origin"],
+                "actualDateTime": "2026-07-01T07:57:00+0200",
+                "departureDelayInSeconds": 360,
+            },
+        },
+        TRIP["legs"][2],
+    ],
+}
+
+
 def main() -> int:
     trip = model.parse_trip(TRIP)
     assert trip is not None
@@ -169,6 +186,24 @@ def main() -> int:
 
     print("\nsummary_text:", trip.summary_text)
     print("departure_station attrs:", trip.departure_station.as_attributes())
+
+    delayed = model.parse_trip(DELAYED_TRIP)
+    assert delayed is not None
+    delay_checks = {
+        "departure_delay_minutes": (delayed.departure_delay_minutes, 6),
+        "departure_station_delay": (delayed.departure_station.delay_minutes, 6),
+        "is_delayed": (delayed.is_delayed, True),
+        "walk_leg_unchanged": (
+            delayed.legs[0]["departure_delay_minutes"],
+            0,
+        ),
+    }
+    for label, (got, expected) in delay_checks.items():
+        status = "OK" if got == expected else "FAIL"
+        if got != expected:
+            ok = False
+        print(f"[{status}] delayed.{label}: {got!r} (expected {expected!r})")
+
     print("\nALL OK:", ok)
     return 0 if ok else 1
 
