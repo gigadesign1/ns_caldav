@@ -98,6 +98,9 @@ class ParsedTrip:
     # Door-to-door endpoints (first leg origin / last leg destination).
     origin_name: str | None = None
     destination_name: str | None = None
+    # When the whole journey starts (first leg origin), e.g. leaving home on a walk.
+    journey_start_planned: datetime | None = None
+    journey_start_actual: datetime | None = None
     planned_departure: datetime | None = None
     actual_departure: datetime | None = None
     planned_arrival: datetime | None = None
@@ -232,6 +235,8 @@ def parse_trip(data: dict[str, Any]) -> ParsedTrip | None:
 
     planned_departure = _parse(first_origin.get("plannedDateTime"))
     actual_departure = _parse(first_origin.get("actualDateTime")) or planned_departure
+    journey_start_planned = planned_departure
+    journey_start_actual = actual_departure
     planned_arrival = _parse(last_destination.get("plannedDateTime"))
     actual_arrival = _parse(last_destination.get("actualDateTime")) or planned_arrival
 
@@ -257,6 +262,8 @@ def parse_trip(data: dict[str, Any]) -> ParsedTrip | None:
     trip = ParsedTrip(
         origin_name=first_origin.get("name"),
         destination_name=last_destination.get("name"),
+        journey_start_planned=journey_start_planned,
+        journey_start_actual=journey_start_actual,
         planned_departure=planned_departure,
         actual_departure=actual_departure,
         planned_arrival=planned_arrival,

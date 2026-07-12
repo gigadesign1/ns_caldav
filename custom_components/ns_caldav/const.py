@@ -14,13 +14,11 @@ CONF_SUBSCRIPTION_KEY: Final = "subscription_key"
 # Options keys.
 CONF_SCAN_INTERVAL_HOURS: Final = "scan_interval_hours"
 CONF_LOOK_AHEAD_DAYS: Final = "look_ahead_days"
-CONF_NOTIFY_LEAD_MINUTES: Final = "notify_lead_minutes"
 CONF_DELAY_THRESHOLD_MINUTES: Final = "delay_threshold_minutes"
 
 # Defaults.
 DEFAULT_SCAN_INTERVAL_HOURS: Final = 1
 DEFAULT_LOOK_AHEAD_DAYS: Final = 30
-DEFAULT_NOTIFY_LEAD_MINUTES: Final = 10
 DEFAULT_DELAY_THRESHOLD_MINUTES: Final = 1
 DEFAULT_VERIFY_SSL: Final = True
 

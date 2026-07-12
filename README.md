@@ -60,7 +60,6 @@ Open the integration and choose **Configure** to tune:
 | --- | --- | --- |
 | Calendar scan interval (hours) | 1 | How often the calendar is scanned for new links |
 | Calendar look-ahead (days) | 30 | How far ahead appointments are scanned |
-| Leave-soon lead time (minutes) | 10 | When the `Leave soon` sensor turns on before departure |
 | Delay threshold (minutes) | 1 | Minimum delay before the `Delayed` sensor turns on |
 
 ## How to add a trip
@@ -87,28 +86,27 @@ upcoming trip.
 - **Transfers**
 - **Status** - `NORMAL`, `DISRUPTION`, `CANCELLED`, ...
 - **Crowd forecast**
-- **Departure in** - minutes until departure
+- **Departure in** - minutes until the whole journey starts (first leg, e.g. leaving home)
 - **Price** - total fare in EUR (base/supplement as attributes)
 - **Trip summary** - `origin -> destination`, with a rich attribute set including
   a notification-ready `summary_text`, per-leg breakdown, prices and stations
 
 ### Binary sensors
 
-- **Leave soon** - on from `departure - lead time` until departure
 - **Delayed** - on when the delay exceeds the configured threshold
 - **Disruption** - on when the trip is cancelled/disrupted or has messages
 
 ## Example automations
 
-Notify when it's time to leave (uses the `Leave soon` sensor):
+Notify before departure (uses `Departure in` and a numeric state trigger):
 
 ```yaml
 automation:
   - alias: "Notify before NS trip"
     trigger:
-      - platform: state
-        entity_id: binary_sensor.ns_trip_next_leave_soon
-        to: "on"
+      - platform: numeric_state
+        entity_id: sensor.ns_trip_next_departure_in
+        below: 11
     action:
       - service: notify.mobile_app_your_phone
         data:

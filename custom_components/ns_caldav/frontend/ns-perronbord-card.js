@@ -234,9 +234,9 @@ class NsPerronbordCard extends HTMLElement {
     const arr = a.arrival_station || {};
     const { train, direction } = this._legInfo(a);
     const depDelay = Number(a.departure_delay_minutes || 0);
-    const depTime = hhmm(a.actual_departure);
-    const planned = hhmm(a.planned_departure);
-    const until = minutesUntil(a.actual_departure);
+    const depTime = hhmm(a.journey_start_actual || a.actual_departure);
+    const planned = hhmm(a.journey_start_planned || a.planned_departure);
+    const until = minutesUntil(a.journey_start_actual || a.actual_departure);
     const transfers = a.transfers;
     const track = dep.track || a.departure_track;
 

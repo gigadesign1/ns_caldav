@@ -32,11 +32,25 @@ class NsTripSensorDescription(SensorEntityDescription):
     attr_fn: Callable[[ParsedTrip], dict[str, Any] | None] | None = None
 
 
-def _minutes_until(trip: ParsedTrip) -> StateType:
-    if trip.actual_departure is None:
+def _minutes_until_journey_start(trip: ParsedTrip) -> StateType:
+    """Minutes until the first leg of the trip begins (door-to-door start)."""
+    start = trip.journey_start_actual
+    if start is None:
         return None
-    delta = trip.actual_departure - dt_util.now()
+    delta = start - dt_util.now()
     return max(0, round(delta.total_seconds() / 60))
+
+
+def _journey_start_attributes(trip: ParsedTrip) -> dict[str, Any]:
+    return {
+        "origin": trip.origin_name,
+        "planned": trip.journey_start_planned.isoformat()
+        if trip.journey_start_planned
+        else None,
+        "actual": trip.journey_start_actual.isoformat()
+        if trip.journey_start_actual
+        else None,
+    }
 
 
 SENSOR_DESCRIPTIONS: tuple[NsTripSensorDescription, ...] = (
@@ -126,7 +140,8 @@ SENSOR_DESCRIPTIONS: tuple[NsTripSensorDescription, ...] = (
         translation_key="departure_in",
         native_unit_of_measurement=UnitOfTime.MINUTES,
         icon="mdi:clock-start",
-        value_fn=_minutes_until,
+        value_fn=_minutes_until_journey_start,
+        attr_fn=_journey_start_attributes,
     ),
     NsTripSensorDescription(
         key="price",
@@ -151,6 +166,12 @@ SENSOR_DESCRIPTIONS: tuple[NsTripSensorDescription, ...] = (
             else None,
             "actual_departure": t.actual_departure.isoformat()
             if t.actual_departure
+            else None,
+            "journey_start_planned": t.journey_start_planned.isoformat()
+            if t.journey_start_planned
+            else None,
+            "journey_start_actual": t.journey_start_actual.isoformat()
+            if t.journey_start_actual
             else None,
             "planned_arrival": t.planned_arrival.isoformat()
             if t.planned_arrival

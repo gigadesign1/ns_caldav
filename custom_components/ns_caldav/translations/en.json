@@ -38,7 +38,6 @@
         "data": {
           "scan_interval_hours": "Calendar scan interval (hours)",
           "look_ahead_days": "Calendar look-ahead (days)",
-          "notify_lead_minutes": "Leave-soon lead time (minutes)",
           "delay_threshold_minutes": "Delay threshold (minutes)"
         }
       }
@@ -62,7 +61,6 @@
       "summary": { "name": "Trip summary" }
     },
     "binary_sensor": {
-      "leave_soon": { "name": "Leave soon" },
       "delayed": { "name": "Delayed" },
       "disruption": { "name": "Disruption" }
     }

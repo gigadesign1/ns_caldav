@@ -26,12 +26,10 @@ from .caldav_client import async_validate_connection
 from .const import (
     CONF_DELAY_THRESHOLD_MINUTES,
     CONF_LOOK_AHEAD_DAYS,
-    CONF_NOTIFY_LEAD_MINUTES,
     CONF_SCAN_INTERVAL_HOURS,
     CONF_SUBSCRIPTION_KEY,
     DEFAULT_DELAY_THRESHOLD_MINUTES,
     DEFAULT_LOOK_AHEAD_DAYS,
-    DEFAULT_NOTIFY_LEAD_MINUTES,
     DEFAULT_SCAN_INTERVAL_HOURS,
     DEFAULT_VERIFY_SSL,
     DOMAIN,
@@ -155,12 +153,6 @@ class NsCaldavOptionsFlow(OptionsFlow):
                         CONF_LOOK_AHEAD_DAYS, DEFAULT_LOOK_AHEAD_DAYS
                     ),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1, max=365)),
-                vol.Optional(
-                    CONF_NOTIFY_LEAD_MINUTES,
-                    default=options.get(
-                        CONF_NOTIFY_LEAD_MINUTES, DEFAULT_NOTIFY_LEAD_MINUTES
-                    ),
-                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=240)),
                 vol.Optional(
                     CONF_DELAY_THRESHOLD_MINUTES,
                     default=options.get(

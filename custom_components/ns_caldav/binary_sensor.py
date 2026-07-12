@@ -1,8 +1,7 @@
-"""Binary sensors for the next NS trip (leave-soon, delayed, disruption)."""
+"""Binary sensors for the next NS trip (delayed, disruption)."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -10,17 +9,13 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_point_in_time
-from homeassistant.util import dt as dt_util
 
 from . import NsCaldavData
 from .const import (
     CONF_DELAY_THRESHOLD_MINUTES,
-    CONF_NOTIFY_LEAD_MINUTES,
     DEFAULT_DELAY_THRESHOLD_MINUTES,
-    DEFAULT_NOTIFY_LEAD_MINUTES,
     DOMAIN,
 )
 from .coordinator import TripCoordinator
@@ -34,95 +29,15 @@ async def async_setup_entry(
 ) -> None:
     """Set up NS trip binary sensors."""
     data: NsCaldavData = hass.data[DOMAIN][entry.entry_id]
-    lead = entry.options.get(CONF_NOTIFY_LEAD_MINUTES, DEFAULT_NOTIFY_LEAD_MINUTES)
     threshold = entry.options.get(
         CONF_DELAY_THRESHOLD_MINUTES, DEFAULT_DELAY_THRESHOLD_MINUTES
     )
     async_add_entities(
         [
-            NsLeaveSoonBinarySensor(data.trip, entry.entry_id, lead),
             NsDelayedBinarySensor(data.trip, entry.entry_id, threshold),
             NsDisruptionBinarySensor(data.trip, entry.entry_id),
         ]
     )
-
-
-class NsLeaveSoonBinarySensor(NsTripBaseEntity, BinarySensorEntity):
-    """On from (actual departure - lead) until actual departure.
-
-    Flips precisely using a scheduled point-in-time timer so notifications fire
-    on time, and reschedules whenever the coordinator reports a new departure
-    (e.g. because of a delay).
-    """
-
-    _attr_translation_key = "leave_soon"
-    _attr_icon = "mdi:bell-ring-outline"
-
-    def __init__(
-        self, coordinator: TripCoordinator, entry_id: str, lead_minutes: int
-    ) -> None:
-        super().__init__(coordinator, entry_id, "leave_soon")
-        self._lead = timedelta(minutes=lead_minutes)
-        self._unsub_timer = None
-
-    def _window(self) -> tuple[datetime, datetime] | None:
-        trip = self.coordinator.data
-        if trip is None or trip.actual_departure is None:
-            return None
-        return trip.actual_departure - self._lead, trip.actual_departure
-
-    @property
-    def is_on(self) -> bool:
-        """True when within the lead window before departure."""
-        window = self._window()
-        if window is None:
-            return False
-        start, end = window
-        return start <= dt_util.now() <= end
-
-    @callback
-    def _cancel_timer(self) -> None:
-        if self._unsub_timer is not None:
-            self._unsub_timer()
-            self._unsub_timer = None
-
-    @callback
-    def _schedule(self) -> None:
-        self._cancel_timer()
-        window = self._window()
-        if window is None:
-            return
-        now = dt_util.now()
-        start, end = window
-        next_point: datetime | None = None
-        if now < start:
-            next_point = start
-        elif now < end:
-            next_point = end
-        if next_point is not None:
-            self._unsub_timer = async_track_point_in_time(
-                self.hass, self._handle_timer, next_point
-            )
-
-    @callback
-    def _handle_timer(self, _now: datetime) -> None:
-        self.async_write_ha_state()
-        self._schedule()
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        self._schedule()
-        super()._handle_coordinator_update()
-
-    async def async_added_to_hass(self) -> None:
-        """Schedule the initial flip when added."""
-        await super().async_added_to_hass()
-        self._schedule()
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Cancel any pending timer on removal."""
-        self._cancel_timer()
-        await super().async_will_remove_from_hass()
 
 
 class NsDelayedBinarySensor(NsTripBaseEntity, BinarySensorEntity):

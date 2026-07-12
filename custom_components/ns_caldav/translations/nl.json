@@ -38,7 +38,6 @@
         "data": {
           "scan_interval_hours": "Scaninterval agenda (uren)",
           "look_ahead_days": "Vooruitkijken in agenda (dagen)",
-          "notify_lead_minutes": "Voorbereidingstijd 'vertrek bijna' (minuten)",
           "delay_threshold_minutes": "Vertragingsdrempel (minuten)"
         }
       }
@@ -62,7 +61,6 @@
       "summary": { "name": "Reisoverzicht" }
     },
     "binary_sensor": {
-      "leave_soon": { "name": "Vertrek bijna" },
       "delayed": { "name": "Vertraagd" },
       "disruption": { "name": "Verstoring" }
     }
