@@ -19,6 +19,8 @@ The calendar is **not** shown as a calendar entity. Instead:
 ## Requirements
 
 - Home Assistant 2024.1 or newer.
+- Compatible with Home Assistant's built-in CalDAV integration; this
+  integration accepts the shared `caldav` version selected by Home Assistant.
 - A CalDAV calendar URL with username/password.
   - For **iCloud**, create an [app-specific password](https://support.apple.com/en-us/102654)
     and use the CalDAV URL `https://caldav.icloud.com/`.
@@ -137,9 +139,19 @@ automation:
 ## Dashboard card
 
 The integration ships a custom Lovelace card, **NS Perronbord**, that shows the
-next trip styled like an NS departure board. It is registered automatically when
-the integration loads - there is **no need to add a resource manually**. (If the
-card type isn't recognised the first time, do a hard refresh of the browser.)
+next trip styled like an NS departure board. On the default storage-mode
+dashboards it is registered automatically as a Lovelace resource, so there is
+**no need to add a resource manually**.
+
+If your Lovelace resources are configured in YAML mode, add this resource to
+your configuration:
+
+```yaml
+lovelace:
+  resources:
+    - url: /ns_caldav/ns-perronbord-card.js
+      type: module
+```
 
 The card has two variants:
 

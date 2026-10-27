@@ -134,6 +134,24 @@ class NsPerronbordCard extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._config = {};
     this._hass = undefined;
+    this._autoEntity = null;
+    this._lastEntitySearch = 0;
+    this._lastRenderedEntityId = null;
+    this._lastRenderedState = undefined;
+    this._countdownTimer = null;
+  }
+
+  connectedCallback() {
+    if (this._countdownTimer === null) {
+      this._countdownTimer = window.setInterval(() => this._render(), 60_000);
+    }
+  }
+
+  disconnectedCallback() {
+    if (this._countdownTimer !== null) {
+      window.clearInterval(this._countdownTimer);
+      this._countdownTimer = null;
+    }
   }
 
   setConfig(config) {
@@ -150,12 +168,22 @@ class NsPerronbordCard extends HTMLElement {
       variant,
     };
     this._autoEntity = null;
+    this._lastEntitySearch = 0;
+    this._lastRenderedEntityId = null;
+    this._lastRenderedState = undefined;
     this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    const entityId = this._resolveEntityId();
+    const state = entityId ? hass.states[entityId] : undefined;
+    if (
+      entityId !== this._lastRenderedEntityId ||
+      state !== this._lastRenderedState
+    ) {
+      this._render();
+    }
   }
 
   getCardSize() {
@@ -176,6 +204,13 @@ class NsPerronbordCard extends HTMLElement {
       return this._autoEntity;
     }
 
+    this._autoEntity = null;
+    const now = Date.now();
+    if (now - this._lastEntitySearch < 5_000) {
+      return null;
+    }
+    this._lastEntitySearch = now;
+
     // The trip summary sensor is the only entity exposing `summary_text`,
     // so we can find it regardless of the (localized) entity_id.
     const found = Object.keys(this._hass.states).find((id) => {
@@ -187,9 +222,8 @@ class NsPerronbordCard extends HTMLElement {
     return this._autoEntity;
   }
 
-  _trip() {
+  _trip(entityId = this._resolveEntityId()) {
     if (!this._hass) return null;
-    const entityId = this._resolveEntityId();
     if (!entityId) return null;
     const state = this._hass.states[entityId];
     if (!state || state.state === "unavailable" || state.state === "unknown") {
@@ -200,24 +234,37 @@ class NsPerronbordCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot) return;
-    const trip = this._trip();
+    const entityId = this._resolveEntityId();
+    const state = entityId && this._hass
+      ? this._hass.states[entityId]
+      : undefined;
 
-    let inner;
-    if (!trip) {
-      inner = this._renderEmpty();
-    } else {
-      const a = trip.attributes || {};
-      const delayed = Number(a.departure_delay_minutes || 0) > 0 ||
-        Number(a.arrival_delay_minutes || 0) > 0 || Boolean(a.is_delayed);
-      const disrupted = Boolean(a.is_disrupted) ||
-        (a.status && a.status !== "NORMAL");
-      const useAlert = this._config.variant === "alert" || delayed || disrupted;
-      inner = useAlert
-        ? this._renderAlert(a, { delayed, disrupted })
-        : this._renderBoard(a);
+    try {
+      const trip = this._trip(entityId);
+      let inner;
+      if (!trip) {
+        inner = this._renderEmpty();
+      } else {
+        const a = trip.attributes || {};
+        const delayed = Number(a.departure_delay_minutes || 0) > 0 ||
+          Number(a.arrival_delay_minutes || 0) > 0 || Boolean(a.is_delayed);
+        const disrupted = Boolean(a.is_disrupted) ||
+          (a.status && a.status !== "NORMAL");
+        const useAlert = this._config.variant === "alert" || delayed || disrupted;
+        inner = useAlert
+          ? this._renderAlert(a, { delayed, disrupted })
+          : this._renderBoard(a);
+      }
+
+      this.shadowRoot.innerHTML = `<style>${STYLES}</style>${inner}`;
+    } catch (error) {
+      console.error("NS Perronbord card failed to render", error);
+      this.shadowRoot.innerHTML =
+        `<style>${STYLES}</style>${this._renderEmpty()}`;
     }
 
-    this.shadowRoot.innerHTML = `<style>${STYLES}</style>${inner}`;
+    this._lastRenderedEntityId = entityId;
+    this._lastRenderedState = state;
   }
 
   _legInfo(a) {

@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
 from .const import (
@@ -38,8 +40,8 @@ async def _async_register_frontend_card(hass: HomeAssistant) -> None:
     """Serve the Lovelace card and load it as a frontend module (once).
 
     Failures here must never break entity setup, so everything is best-effort
-    and logged. The card is loaded for every dashboard via ``add_extra_js_url``
-    so the user does not have to add a Lovelace resource manually.
+    and logged. Storage-mode dashboards load the card as a Lovelace resource;
+    YAML-mode dashboards fall back to ``add_extra_js_url``.
     """
     domain_data = hass.data.setdefault(DOMAIN, {})
     if domain_data.get(CARD_REGISTERED):
@@ -62,20 +64,56 @@ async def _async_register_frontend_card(hass: HomeAssistant) -> None:
     except Exception:  # noqa: BLE001 - version is best-effort cache busting only
         version = "0"
 
+    card_url = f"{CARD_URL_PATH}?v={version}"
     try:
-        from homeassistant.components.frontend import add_extra_js_url
+        if await _async_register_lovelace_resource(hass, card_url):
+            _LOGGER.info("Registered NS perronbord card resource at %s", card_url)
+        else:
+            from homeassistant.components.frontend import add_extra_js_url
 
-        add_extra_js_url(hass, f"{CARD_URL_PATH}?v={version}")
+            add_extra_js_url(hass, card_url)
+            _LOGGER.warning(
+                "Lovelace resources are not in storage mode; loaded the NS "
+                "perronbord card through the frontend fallback. For reliable "
+                "loading in YAML mode, add %s as a JavaScript module resource",
+                CARD_URL_PATH,
+            )
     except Exception:  # noqa: BLE001 - best-effort; do not break setup
         _LOGGER.exception("Failed to load the NS perronbord card module")
-        return
+    finally:
+        # The static route cannot be registered twice. Mark this attempt done
+        # even if optional Lovelace resource registration failed.
+        domain_data[CARD_REGISTERED] = True
 
-    domain_data[CARD_REGISTERED] = True
-    _LOGGER.info(
-        "Registered NS perronbord card at %s (restart + hard-refresh the "
-        "browser if it is not picked up immediately)",
-        CARD_URL_PATH,
-    )
+
+async def _async_register_lovelace_resource(
+    hass: HomeAssistant, card_url: str
+) -> bool:
+    """Create or update the card's storage-mode Lovelace resource."""
+    lovelace_data: Any = hass.data.get("lovelace")
+    if lovelace_data is None:
+        return False
+
+    resources = getattr(lovelace_data, "resources", None)
+    if resources is None and isinstance(lovelace_data, dict):
+        # Home Assistant < 2025.2 stored Lovelace data in a dictionary.
+        resources = lovelace_data.get("resources")
+
+    if resources is None or getattr(resources, "store", None) is None:
+        return False
+
+    if not resources.loaded:
+        await resources.async_load()
+
+    for item in resources.async_items():
+        if item["url"].split("?", 1)[0] != CARD_URL_PATH:
+            continue
+        if item["url"] != card_url:
+            await resources.async_update_item(item["id"], {"url": card_url})
+        return True
+
+    await resources.async_create_item({"res_type": "module", "url": card_url})
+    return True
 
 
 async def _async_register_static_path(hass: HomeAssistant, url: str, path: str) -> None:
@@ -88,6 +126,12 @@ async def _async_register_static_path(hass: HomeAssistant, url: str, path: str) 
         return
     # Fallback for Home Assistant < 2024.7.
     hass.http.register_static_path(url, path, cache_headers=False)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up integration-wide resources."""
+    await _async_register_frontend_card(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

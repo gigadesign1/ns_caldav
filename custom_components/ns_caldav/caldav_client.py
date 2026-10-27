@@ -1,8 +1,8 @@
 """CalDAV access for discovering NS share links in calendar events.
 
-The ``caldav`` and ``icalendar`` libraries are synchronous (caldav uses
-``requests`` under the hood), so every network/parse call here is meant to be
-run inside Home Assistant's executor via ``hass.async_add_executor_job``.
+The ``caldav`` and ``icalendar`` libraries are synchronous, so every
+network/parse call here is meant to be run inside Home Assistant's executor
+via ``hass.async_add_executor_job``.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from typing import Any
 
 import caldav
 from caldav.lib.error import AuthorizationError, DAVError
-import requests
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
@@ -77,11 +76,10 @@ def validate_connection(
         if getattr(err, "reason", None) == "Unauthorized":
             return "invalid_auth"
         return "cannot_connect"
-    except requests.Timeout as err:
-        _LOGGER.warning("Timeout connecting to CalDAV: %s", err)
-        return "cannot_connect"
-    except requests.ConnectionError as err:
-        _LOGGER.warning("Connection error connecting to CalDAV: %s", err)
+    except OSError as err:
+        # caldav 1.x uses requests while newer releases prefer niquests.
+        # Both libraries derive their transport errors from OSError.
+        _LOGGER.warning("Network error connecting to CalDAV: %s", err)
         return "cannot_connect"
     except DAVError as err:
         _LOGGER.warning("CalDAV client error: %s", err)
@@ -152,7 +150,7 @@ def discover_share_links(
             events = calendar.search(
                 start=start, end=end, event=True, expand=True
             )
-        except (DAVError, requests.RequestException) as err:
+        except (DAVError, OSError) as err:
             _LOGGER.warning(
                 "Failed to search calendar %s: %s",
                 getattr(calendar, "name", calendar),
